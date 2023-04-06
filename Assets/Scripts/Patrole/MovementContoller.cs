@@ -3,55 +3,31 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public enum PatroleState
+public class MovementContoller : MonoBehaviour
 {
-    Idle,
-    Move
-}
-
-
-public class MovementContoller : MonoBehaviour, IMovement
-{
-    public PatroleState currentState = PatroleState.Move;
-
-    private NavMeshAgent agent;
-
+    #region Variables
+    public IdleState idleState;
+    public PatroleState patroleState;
+    public StateMachine stateMachine;
+    public NavMeshAgent agent;
     public List<Transform> points;
-    private int pointIndex = 0;
+    private int pointIndex;
+    #endregion
 
-    void Start()
+    #region Properties
+
+    public IEnumerator TimeToMove()
     {
-        agent = GetComponent<NavMeshAgent>();
-
-    }
-
-    void Update()
-    {
-        switch (currentState)
-        {
-            case PatroleState.Idle:
-                Idle();
-                break;
-            case PatroleState.Move:
-                Move();
-                break;
-        }
-    }
-
-    IEnumerator IdleToMoveCoroutine()
-    {
-        Debug.Log("CoroutineHasStarted");
-        yield return new WaitForSeconds(3);
-        Debug.Log("CoroutineEnd");
-        IdleToMove();
+        yield return new WaitForSeconds(2);
+        stateMachine.ChangeState(patroleState);
     }
 
 
     public void Move()
     {
-        if( agent.remainingDistance < agent.stoppingDistance)
+        if (agent.remainingDistance < agent.stoppingDistance)
         {
-            MoveToIdle();
+            stateMachine.ChangeState(idleState);
             agent.SetDestination(points[pointIndex].position);
             pointIndex++;
             if (pointIndex == points.Count)
@@ -61,31 +37,27 @@ public class MovementContoller : MonoBehaviour, IMovement
         }
     }
 
-    public void IdleToMove()
-    {
-        agent.isStopped = false;
-        Move();
-        ChangeState(PatroleState.Move);
-    }
-
-    public void MoveToIdle()
-    {
-        Debug.Log("start idle");
-        if(currentState == PatroleState.Move)
-        {
-            ChangeState(PatroleState.Idle);
-            StartCoroutine(IdleToMoveCoroutine());
-        }
-    }
-
     public void Idle()
     {
-        agent.isStopped = true;
+
     }
+    #endregion
 
+    #region MonoCallbacks
 
-    private void ChangeState(PatroleState state)
+    void Start()
     {
-        currentState = state;
+        agent = GetComponent<NavMeshAgent>();
+        stateMachine = new StateMachine();
+        idleState = new IdleState(this, stateMachine);
+        patroleState = new PatroleState(this, stateMachine);
+        stateMachine.Initialize(idleState);
     }
+
+    void Update()
+    {
+        stateMachine.currentState.LogicUpdate();
+    }
+    
+    #endregion
 }
